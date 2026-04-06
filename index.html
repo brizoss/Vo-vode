@@ -79,6 +79,34 @@
         body::-webkit-scrollbar { width: 8px; }
         body::-webkit-scrollbar-track { background: var(--deep-black); }
         body::-webkit-scrollbar-thumb { background: var(--aged-gold); border-radius: 4px; }
+
+        /* --- AJOUTS RESPONSIVE --- */
+
+        /* Désactiver le faux curseur sur les écrans tactiles */
+        @media (hover: none) and (pointer: coarse) {
+            body { cursor: auto; }
+            .cursor, .cursor-follower { display: none !important; }
+        }
+
+        /* Rendre la section Univers scrollable nativement sur mobile */
+        @media (max-width: 768px) {
+            .horizontal-scroll-container {
+                overflow-x: auto !important;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none; /* Cache la scrollbar sur Firefox */
+            }
+            .horizontal-scroll-container::-webkit-scrollbar {
+                display: none; /* Cache la scrollbar sur Chrome/Safari/Edge */
+            }
+            .horizontal-section {
+                padding-bottom: 1rem;
+            }
+            .horizontal-section > div {
+                scroll-snap-align: center;
+                width: 85vw; /* Laisse deviner l'image suivante */
+            }
+        }
     </style>
 </head>
 <body>
@@ -369,29 +397,72 @@
     <script>
         lucide.createIcons();
         
+        // --- GESTION DU CURSEUR (Seulement sur PC) ---
         const cursor = document.querySelector('.cursor');
         const follower = document.querySelector('.cursor-follower');
         
-        document.addEventListener('mousemove', e => {
-            cursor.style.left = e.clientX - 10 + 'px';
-            cursor.style.top = e.clientY - 10 + 'px';
-            
-            setTimeout(() => {
-                follower.style.left = e.clientX - 4 + 'px';
-                follower.style.top = e.clientY - 4 + 'px';
-            }, 50);
+        // On ne lance l'animation du curseur que si l'appareil a une vraie souris
+        if (matchMedia('(pointer: fine)').matches) {
+            document.addEventListener('mousemove', e => {
+                cursor.style.left = e.clientX - 10 + 'px';
+                cursor.style.top = e.clientY - 10 + 'px';
+                
+                setTimeout(() => {
+                    follower.style.left = e.clientX - 4 + 'px';
+                    follower.style.top = e.clientY - 4 + 'px';
+                }, 50);
+            });
+
+            const interactiveElements = document.querySelectorAll('a, button, .hover-trigger');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursor.classList.add('hover');
+                    follower.style.opacity = '0';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursor.classList.remove('hover');
+                    follower.style.opacity = '0.8';
+                });
+            });
+        }
+
+        // --- GESTION DE LA NAVBAR AU SCROLL ---
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.remove('opacity-0', '-translate-y-full');
+                navbar.classList.add('opacity-100', 'translate-y-0');
+            } else {
+                navbar.classList.add('opacity-0', '-translate-y-full');
+                navbar.classList.remove('opacity-100', 'translate-y-0');
+            }
         });
 
-        const interactiveElements = document.querySelectorAll('a, button, .hover-trigger');
-        interactiveElements.forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                cursor.classList.add('hover');
-                follower.style.opacity = '0';
-            });
-            el.addEventListener('mouseleave', () => {
-                cursor.classList.remove('hover');
-                follower.style.opacity = '0.8';
-            });
+        // --- GESTION DU MENU MOBILE ---
+        const menuBtn = document.getElementById('menu-btn');
+        const closeBtn = document.getElementById('close-menu');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileLinks = document.querySelectorAll('.mobile-link');
+
+        function toggleMenu() {
+            const isOpen = mobileMenu.classList.contains('opacity-100');
+            if (isOpen) {
+                mobileMenu.classList.remove('opacity-100', 'pointer-events-auto');
+                mobileMenu.classList.add('opacity-0', 'pointer-events-none');
+                document.body.style.overflow = 'auto'; // Réactive le scroll global
+            } else {
+                mobileMenu.classList.remove('opacity-0', 'pointer-events-none');
+                mobileMenu.classList.add('opacity-100', 'pointer-events-auto');
+                document.body.style.overflow = 'hidden'; // Bloque le scroll global sous le menu
+            }
+        }
+
+        menuBtn.addEventListener('click', toggleMenu);
+        closeBtn.addEventListener('click', toggleMenu);
+        
+        // Fermer le menu si on clique sur un lien
+        mobileLinks.forEach(link => {
+            link.addEventListener('click', toggleMenu);
         });
     </script>
 </body>
