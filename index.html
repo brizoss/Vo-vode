@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voïvode - L'homme avant le mythe</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --blood-red: #660708; 
+            --deep-black: #050505;
+            --aged-gold: #C9A961; 
+            --fog-gray: #1a1a1a;
+            --text-muted: #888888;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--deep-black);
+            color: #f5f5f5;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            cursor: none;
+        }
+        
+        /* Custom Cursor */
+        .cursor { width: 20px; height: 20px; border: 1px solid var(--aged-gold); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; transition: transform 0.1s; mix-blend-mode: difference; }
+        .cursor-follower { width: 8px; height: 8px; background: var(--aged-gold); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; opacity: 0.8; }
+        .cursor.hover { transform: scale(2); background: rgba(201, 169, 97, 0.1); }
+        
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-crimson { font-family: 'Crimson Text', serif; }
+        
+        /* Grain Overlay */
+        .grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9998; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); }
+        
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.4; }
+        
+        .progress-bar { position: fixed; top: 0; left: 0; height: 2px; background: linear-gradient(90deg, var(--blood-red), var(--aged-gold)); z-index: 10000; transform-origin: left; transform: scaleX(0); }
+        
+        .nav-glass { background: rgba(5, 5, 5, 0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(201, 169, 97, 0.1); }
+        
+        .magnetic-btn { position: relative; overflow: hidden; transition: all 0.3s ease; }
+        .magnetic-btn::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; background: rgba(102, 7, 8, 0.3); transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+        .magnetic-btn:hover::before { width: 300px; height: 300px; }
+        
+        .reveal-text { clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+        .char { display: inline-block; transform: translateY(100%); opacity: 0; }
+        
+        .parallax-wrapper { overflow: hidden; position: relative; }
+        .parallax-img { will-change: transform; }
+        
+        .horizontal-section { display: flex; flex-wrap: nowrap; width: fit-content; }
+        
+        .book-3d { transform-style: preserve-3d; perspective: 1000px; }
+        .book-cover { transform: rotateY(-15deg); transition: transform 0.5s ease; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9); }
+        .book-cover:hover { transform: rotateY(-5deg) rotateX(5deg); }
+        
+        @keyframes drip { 0% { height: 0; opacity: 1; } 80% { opacity: 1; } 100% { height: 100px; opacity: 0; } }
+        .blood-drip { position: absolute; width: 2px; background: linear-gradient(to bottom, var(--blood-red), transparent); animation: drip 3s ease-in infinite; }
+        
+        @keyframes scroll-down { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(20px); opacity: 0; } }
+        .scroll-indicator { animation: scroll-down 2s ease-in-out infinite; }
+        
+        ::selection { background: var(--blood-red); color: white; }
+        
+        html { scroll-behavior: smooth; }
+        body::-webkit-scrollbar { width: 8px; }
+        body::-webkit-scrollbar-track { background: var(--deep-black); }
+        body::-webkit-scrollbar-thumb { background: var(--aged-gold); border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="cursor"></div>
+    <div class="cursor-follower"></div>
+    <div class="progress-bar"></div>
+    <div class="grain"></div>
+    <div id="canvas-container"></div>
+
+    <nav class="nav-glass fixed top-0 w-full z-50 px-6 py-4 transition-all duration-300 opacity-0 -translate-y-full" id="navbar">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="#hero" class="font-cinzel text-2xl tracking-widest text-[#C9A961] hover-trigger">VOÏVODE</a>
+            <div class="hidden md:flex gap-8 text-sm tracking-widest uppercase">
+                <a href="#synopsis" class="hover:text-[#C9A961] transition-colors hover-trigger">L'Histoire</a>
+                <a href="#univers" class="hover:text-[#C9A961] transition-colors hover-trigger">L'Univers</a>
+                <a href="#auteur" class="hover:text-[#C9A961] transition-colors hover-trigger">L'Auteur</a>
+                <a href="#commande" class="border border-[#C9A961] px-6 py-2 hover:bg-[#C9A961] hover:text-black transition-all hover-trigger">Acquérir</a>
+            </div>
+            <button class="md:hidden hover-trigger" id="menu-btn">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="fixed inset-0 bg-black z-40 flex flex-col items-center justify-center gap-8 opacity-0 pointer-events-none transition-opacity duration-500" id="mobile-menu">
+        <a href="#synopsis" class="font-cinzel text-3xl hover:text-[#C9A961] transition-colors mobile-link">L'Histoire</a>
+        <a href="#univers" class="font-cinzel text-3xl hover:text-[#C9A961] transition-colors mobile-link">L'Univers</a>
+        <a href="#auteur" class="font-cinzel text-3xl hover:text-[#C9A961] transition-colors mobile-link">L'Auteur</a>
+        <a href="#commande" class="font-cinzel text-3xl text-[#C9A961] mobile-link">Acquérir</a>
+        <button class="absolute top-6 right-6" id="close-menu">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+    </div>
+
+    <section id="hero" class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-[#050505] z-10"></div>
+            <img src="file:///E:/Users/fred/Desktop/voivode/voivode.png" alt="Atmosphère Voïvode" class="w-full h-full object-cover opacity-80 parallax-img relative z-0" data-speed="0.5">
+        </div>
+        
+        <div class="relative z-20 text-center px-6 max-w-6xl mx-auto">
+            <p class="text-[var(--aged-gold)] text-sm tracking-[0.5em] uppercase mb-6 opacity-0" id="hero-subtitle">Un roman de F. Murria</p>
+            
+            <p class="font-crimson text-xl md:text-2xl text-gray-400 italic max-w-2xl mx-auto mb-12 opacity-0 mt-8" id="hero-quote">
+                "Dracula : l'Homme avant le mythe."
+            </p>
+            
+            <div class="flex flex-col md:flex-row gap-6 justify-center items-center opacity-0" id="hero-ctas">
+                <a href="#synopsis" class="magnetic-btn px-8 py-4 border border-[var(--blood-red)] text-white font-cinzel tracking-widest text-sm hover:bg-[var(--blood-red)] transition-all duration-300 hover-trigger">
+                    L'autopsie d'une damnation
+                </a>
+                <a href="#commande" class="magnetic-btn px-8 py-4 bg-[var(--aged-gold)] text-black font-cinzel tracking-widest text-sm hover:bg-white transition-all duration-300 hover-trigger">
+                    Acquérir l'ouvrage
+                </a>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 opacity-0" id="scroll-indicator">
+            <div class="scroll-indicator">
+                <i data-lucide="chevron-down" class="w-6 h-6 text-[var(--aged-gold)]"></i>
+            </div>
+        </div>
+        
+        <div class="absolute top-20 left-10 w-px h-32 bg-gradient-to-b from-transparent via-[var(--blood-red)] to-transparent opacity-50 z-20"></div>
+        <div class="absolute bottom-20 right-10 w-px h-32 bg-gradient-to-b from-transparent via-[var(--aged-gold)] to-transparent opacity-50 z-20"></div>
+    </section>
+
+    <section id="synopsis" class="relative py-32 px-6 overflow-hidden">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+                <div class="order-2 md:order-1 relative">
+                    <div class="parallax-wrapper aspect-[2/3] max-w-md mx-auto">
+                        <img src="file:///E:/Users/fred/Desktop/voivode/prison.png" alt="Couverture de Voïvode" class="w-full h-full object-cover book-3d book-cover hover-trigger">
+                        <div class="absolute -bottom-6 -right-6 w-full h-full border border-[var(--blood-red)] -z-10"></div>
+                    </div>
+                </div>
+                
+                <div class="order-1 md:order-2">
+                    <span class="text-[var(--blood-red)] text-sm tracking-[0.3em] uppercase font-cinzel">L'Histoire</span>
+                    <h2 class="font-cinzel text-4xl md:text-5xl lg:text-6xl mt-4 mb-8 leading-tight reveal-text">
+                        L'autopsie<br>
+                        <span class="text-[var(--aged-gold)]">d'une damnation</span>
+                    </h2>
+                    
+                    <div class="space-y-6 font-crimson text-lg text-gray-300 leading-relaxed">
+                        <p class="synopsis-text">
+                            1448. L'Europe tremble, Constantinople vacille. Au milieu du chaos, un otage princier revient chez lui. Vlad III Basarab sera la réponse sans précédent face à un monde malade.
+                        </p>
+                        <p class="synopsis-text">
+                            Confronté à la trahison endémique de ses propres nobles et à l'appétit sans fin de l'Empire ottoman, il va forger une nouvelle loi : une loi écrite avec du bois taillé et signée avec du sang.
+                        </p>
+                        <p class="synopsis-text">
+                            Ce récit est l'histoire d'un homme qui a accepté de devenir le cauchemar de son siècle pour que son pays puisse se réveiller libre.
+                        </p>
+                    </div>
+                    
+                    <div class="mt-10 flex gap-8">
+                        <div class="border-l-2 border-[var(--aged-gold)] pl-4">
+                            <span class="font-cinzel text-3xl text-white">1448</span>
+                            <p class="text-sm text-gray-500 mt-1">L'année du chaos</p>
+                        </div>
+                        <div class="border-l-2 border-[var(--blood-red)] pl-4">
+                            <span class="font-cinzel text-3xl text-white">XVᵉ</span>
+                            <p class="text-sm text-gray-500 mt-1">Siècle de ténèbres</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="univers" class="relative py-32 overflow-hidden bg-[#0a0a0a]">
+        <div class="px-6 mb-16">
+            <div class="max-w-7xl mx-auto">
+                <span class="text-[var(--aged-gold)] text-sm tracking-[0.3em] uppercase font-cinzel">L'Univers</span>
+                <h2 class="font-cinzel text-4xl md:text-6xl mt-4">La Valachie Maudite</h2>
+            </div>
+        </div>
+        
+        <div class="horizontal-scroll-container overflow-hidden">
+            <div class="horizontal-section gap-8 px-6" id="horizontal-scroll">
+                
+                <div class="flex-shrink-0 w-[80vw] md:w-[40vw] relative group">
+                    <div class="aspect-[4/3] overflow-hidden">
+                        <img src="file:///E:/Users/fred/Desktop/voivode/paysage_valache.png" alt="Târgoviște" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 p-8">
+                        <h3 class="font-cinzel text-2xl mb-2">Târgoviște</h3>
+                        <p class="text-gray-400 font-crimson">La cité de pierre, de boue et de trahisons</p>
+                    </div>
+                </div>
+                
+                <div class="flex-shrink-0 w-[80vw] md:w-[40vw] relative group">
+                    <div class="aspect-[4/3] overflow-hidden">
+                        <img src="file:///E:/Users/fred/Desktop/voivode/foret de pal1.png" alt="Forêt" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 p-8">
+                        <h3 class="font-cinzel text-2xl mb-2">La Forêt des Suppliciés</h3>
+                        <p class="text-gray-400 font-crimson">Où la loi s'écrit avec du bois taillé</p>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="px-6 mt-8">
+            <div class="max-w-7xl mx-auto flex items-center gap-4">
+                <div class="h-px bg-[var(--blood-red)] flex-1"></div>
+                <span class="text-gray-500 text-sm tracking-widest">Faites défiler pour explorer</span>
+                <div class="h-px bg-[var(--blood-red)] flex-1"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="relative py-32 px-6 overflow-hidden">
+        <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+            <span class="font-cinzel text-[20vw] font-bold select-none">VOÏVODE</span>
+        </div>
+        
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <i data-lucide="quote" class="w-12 h-12 text-[var(--blood-red)] mx-auto mb-8 opacity-50"></i>
+            <blockquote class="font-crimson text-2xl md:text-4xl italic leading-relaxed text-gray-200 mb-8" id="quote-text">
+                "Loin du mythe romantique, voici la véritable tragédie de l'Empaleur."
+            </blockquote>
+        </div>
+        
+        <div class="blood-drip left-1/4 top-0" style="animation-delay: 0s;"></div>
+        <div class="blood-drip left-1/2 top-0" style="animation-delay: 1s;"></div>
+        <div class="blood-drip left-3/4 top-0" style="animation-delay: 2s;"></div>
+    </section>
+
+    <section id="auteur" class="relative py-32 px-6 bg-[#080808]">
+        <div class="max-w-3xl mx-auto">
+            <span class="text-[var(--blood-red)] text-sm tracking-[0.3em] uppercase font-cinzel">L'Auteur</span>
+            <h2 class="font-cinzel text-4xl md:text-5xl mt-4 mb-12">F. MURRIA</h2>
+            
+            <div class="prose prose-invert prose-lg max-w-none font-crimson">
+                <p class="first-letter:text-5xl first-letter:font-cinzel first-letter:text-[var(--aged-gold)] first-letter:float-left first-letter:mr-3 first-letter:mt-[-10px]">
+                    Ostéopathe de métier, F. Murria n'avait pas prévu d'écrire. C'est par un pur hasard créatif qu'il a troqué le soin des corps pour l'autopsie d'une âme : celle de Vlad III Basarab.
+                </p>
+                <p class="mt-6 text-gray-300 leading-relaxed">
+                    Loin des clichés fantastiques et des vampires de pacotille, l'auteur a souhaité revenir à la source historique et charnelle de ce personnage hors du commun. Comment un homme bascule-t-il dans l'absolu ? Comment justifie-t-il l'innommable au nom de la liberté de son peuple ?
+                </p>
+                <p class="mt-6 text-gray-300 leading-relaxed italic border-l-2 border-[var(--blood-red)] pl-6 text-gray-400">
+                    Avec ce premier roman, il dissèque la frontière si fragile entre l'homme et le monstre avec une précision véritablement chirurgicale.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section id="commande" class="relative py-32 px-6 overflow-hidden">
+        <div class="absolute inset-0 bg-[url('file:///E:/Users/fred/Desktop/voivode/targo.png')] opacity-10 bg-cover bg-center"></div>
+        
+        <div class="max-w-6xl mx-auto relative z-10">
+            <div class="text-center mb-16">
+                <span class="text-[var(--aged-gold)] text-sm tracking-[0.3em] uppercase font-cinzel">Soutenez l'auteur</span>
+                <h2 class="font-cinzel text-5xl md:text-7xl mt-4 mb-8">Acquérir<br>L'Ouvrage</h2>
+                <p class="font-crimson text-xl text-gray-400 max-w-2xl mx-auto">
+                    Choisissez votre plateforme de prédilection. En commandant directement via l'éditeur BoD, vous apportez un soutien inestimable au travail de l'auteur.
+                </p>
+            </div>
+            
+            <div class="flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-20">
+                
+                <div class="flex flex-col md:flex-row gap-8 items-center justify-center w-full lg:w-auto">
+                    <div class="border border-gray-800 p-8 max-w-sm w-full hover:border-[var(--aged-gold)] transition-colors group bg-black/60 backdrop-blur-sm">
+                        <h3 class="font-cinzel text-2xl mb-4">Librairies</h3>
+                        <p class="text-3xl font-cinzel text-[var(--aged-gold)] mb-6">21,90 €</p>
+                        <ul class="text-left space-y-4 text-gray-400 mb-8 text-sm">
+                            <li>
+                                <a href="https://www.amazon.fr/Vo%C3%AFvode-Dracula-LHomme-avant-mythe/dp/232258326X/" target="_blank" class="flex items-center gap-2 hover:text-white transition-colors">
+                                    <i data-lucide="shopping-cart" class="w-4 h-4 text-[var(--blood-red)]"></i> Commander sur Amazon
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://www.fnac.com/a22869502/F-Murria-Voivode" target="_blank" class="flex items-center gap-2 hover:text-white transition-colors">
+                                    <i data-lucide="shopping-bag" class="w-4 h-4 text-[var(--blood-red)]"></i> Commander sur Fnac
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://www.cultura.com/p-voivode-9782322583263.html" target="_blank" class="flex items-center gap-2 hover:text-white transition-colors">
+                                    <i data-lucide="package" class="w-4 h-4 text-[var(--blood-red)]"></i> Commander sur Cultura
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="border-2 border-[var(--aged-gold)] p-8 max-w-sm w-full relative bg-[#050505] shadow-2xl">
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[var(--aged-gold)] text-black px-4 py-1 text-xs font-cinzel tracking-widest">
+                            RECOMMANDÉ
+                        </div>
+                        <h3 class="font-cinzel text-2xl mb-4">BoD (Éditeur)</h3>
+                        <p class="text-3xl font-cinzel text-[var(--aged-gold)] mb-6">21,90 €</p>
+                        <ul class="text-left space-y-2 text-gray-400 mb-6 text-sm">
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-[var(--blood-red)]"></i> Soutien direct à l'auteur</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-[var(--blood-red)]"></i> Édition brochée</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-[var(--blood-red)]"></i> Impression à la demande</li>
+                        </ul>
+                        <a href="https://librairie.bod.fr/voivode-f-murria-9782322583263" target="_blank" class="block w-full py-3 text-center bg-[var(--aged-gold)] text-black font-cinzel tracking-widest hover:bg-white transition-colors hover-trigger cursor-none">
+                            Commander
+                        </a>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-[320px] lg:max-w-[400px]">
+                    <div class="book-3d">
+                        <img src="file:///E:/Users/fred/Desktop/voivode/livre2.png" 
+                             alt="Aperçu Voïvode" 
+                             class="w-full h-auto shadow-[20px_20px_60px_rgba(0,0,0,0.8)] book-cover hover-trigger"
+                             style="transform: rotateY(-20deg) rotateX(5deg);">
+                    </div>
+                </div>
+
+            </div>
+            
+            <p class="text-center text-gray-500 font-cinzel text-xs tracking-[0.5em] mt-20">ISBN : 978-2-322-58326-3</p>
+        </div>
+    </section>
+    <footer class="border-t border-gray-900 py-16 px-6 bg-[#020202]">
+        <footer class="border-t border-gray-900 py-16 px-6 bg-[#020202] relative z-50">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+        <div class="text-center md:text-left">
+            <h3 class="font-cinzel text-2xl text-[var(--aged-gold)] mb-2">VOÏVODE</h3>
+            <p class="text-gray-600 text-sm">Dracula : l'Homme avant le mythe</p>
+        </div>
+        
+        <div class="flex flex-wrap justify-center items-center gap-6">
+            <a href="#" class="text-gray-500 hover:text-[var(--aged-gold)] transition-colors hover-trigger">
+                <i data-lucide="instagram" class="w-5 h-5"></i>
+            </a>
+            <a href="#" class="text-gray-500 hover:text-[var(--aged-gold)] transition-colors hover-trigger">
+                <i data-lucide="facebook" class="w-5 h-5"></i>
+            </a>
+            
+            <a href="mailto:fred.murria@gmail.com" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-[var(--aged-gold)] transition-colors hover-trigger">
+                <i data-lucide="mail" class="w-5 h-5"></i>
+                <span class="text-sm font-crimson tracking-wider">fred.murria@gmail.com</span>
+            </a>
+        </div>
+        
+        <p class="text-gray-700 text-xs tracking-widest">© 2026 F. MURRIA - Tous droits réservés</p>
+    </div>
+</footer>
+
+    <script>
+        lucide.createIcons();
+        
+        const cursor = document.querySelector('.cursor');
+        const follower = document.querySelector('.cursor-follower');
+        
+        document.addEventListener('mousemove', e => {
+            cursor.style.left = e.clientX - 10 + 'px';
+            cursor.style.top = e.clientY - 10 + 'px';
+            
+            setTimeout(() => {
+                follower.style.left = e.clientX - 4 + 'px';
+                follower.style.top = e.clientY - 4 + 'px';
+            }, 50);
+        });
+
+        const interactiveElements = document.querySelectorAll('a, button, .hover-trigger');
+        interactiveElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.classList.add('hover');
+                follower.style.opacity = '0';
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.classList.remove('hover');
+                follower.style.opacity = '0.8';
+            });
+        });
+    </script>
+</body>
+</html>
